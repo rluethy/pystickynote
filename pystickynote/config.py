@@ -1,4 +1,4 @@
-from pystickynote.paths import CONFIG_PATH, NOTES_PATH, PATH_DIR
+from pystickynote.paths import CONFIG_FILE, NOTES_FILE
 from configparser import ConfigParser
 import os
 
@@ -11,20 +11,23 @@ border_width = 0
 title_size = 8
 font_size = 10
 box_height = 5
-box_width = 50"""
+box_width = 50
+no_titlebar = False"""
 
 class Config:
-    def __init__(self):
+    def __init__(self, config_dir):
         self.config = ConfigParser()
-        if not os.path.exists(PATH_DIR):
-            os.makedirs(PATH_DIR)
-        if not os.path.exists(CONFIG_PATH):
-            with open(CONFIG_PATH, 'w') as file:
+        self.config_path = os.path.realpath(config_dir + '/' + CONFIG_FILE)
+        self.notes_path = os.path.realpath(config_dir + '/' + NOTES_FILE)
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+        if not os.path.exists(self.config_path):
+            with open(self.config_path, 'w') as file:
                 file.write(example_config)
-        if not os.path.exists(NOTES_PATH):
-            with open(NOTES_PATH, 'w') as file:
+        if not os.path.exists(self.notes_path):
+            with open(self.notes_path, 'w') as file:
                 file.write('{}')
-        self.config.read(CONFIG_PATH)
+        self.config.read(self.config_path)
         self.config_dict = self.config['DEFAULT']
         self.background_color = self.config_dict['background_color']
         self.text_color = self.config_dict['text_color']
@@ -35,10 +38,13 @@ class Config:
         try:
             self.height = self.config_dict['box_height']
             self.width = self.config_dict['box_width']
+            self.no_titlebar = self.config_dict['no_titlebar'] == "True"
         except KeyError:
             self.config['DEFAULT']['box_height'] = '5'
             self.config['DEFAULT']['box_width'] = '50'
-            with open(CONFIG_PATH, 'w') as config_file:
+            self.config['DEFAULT']['no_titlebar'] = "False"
+            with open(self.config_path, 'w') as config_file:
                 self.config.write(config_file)
             self.height = self.config_dict['box_height']
             self.width = self.config_dict['box_width']
+            self.no_titlebar = self.config_dict['no_titlebar'] == "True"

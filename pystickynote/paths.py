@@ -1,5 +1,5 @@
 import os
 
-CONFIG_PATH = os.path.realpath(os.path.expanduser('~') + '/.config/pystickynote/pysn.conf')
-NOTES_PATH = os.path.realpath(os.path.expanduser('~') + '/.config/pystickynote/notes.json')
+CONFIG_FILE= "pysn.conf"
+NOTES_FILE = "notes.json"
 PATH_DIR = os.path.realpath(os.path.expanduser('~') + '/.config/pystickynote/')
