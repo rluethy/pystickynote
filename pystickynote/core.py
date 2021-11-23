@@ -41,18 +41,16 @@ def open_note(name, config):
     while True:
         try:
             event, value = window.Read()
-            print(event,value)
-            if event == 'Close' or event == None:
-                window.Close()
-                break
-            elif event == 'Save':
+            # print(event,value)
+            if event == 'Close' or event == None or event == 'Save':
                 note_obj[name] = value['content']
                 with open(config.notes_path, 'r+') as notes:
                     notes.seek(0)
                     notes.truncate()
                     json.dump(note_obj, notes, indent=4)
-                window.Close()
-                break
+                if event == 'Close' or event == None:
+                    window.Close()
+                    break
             elif event == 'Delete':
                 new_layout = [
                     [g.T('Are you sure you want to delete {}?'.format(name), justification='center')],
@@ -88,11 +86,8 @@ def create_note(name, config):
     while True:
         try:
             event, value = window.Read()
-            print(event,value)
-            if event == 'Close':
-                window.Close()
-                break
-            elif event == 'Save':
+            # print(event,value)
+            if event == 'Close' or event == None or event == 'Save':
                 with open(config.notes_path, 'r+') as notes:
                     note_obj = json.load(notes)
                     note_obj.update({
@@ -101,8 +96,9 @@ def create_note(name, config):
                     notes.seek(0)
                     notes.truncate()
                     json.dump(note_obj, notes, indent=4)
-                window.Close()
-                break
+                if event == 'Close' or event == None:
+                    window.Close()
+                    break
         except:
             pass
         
