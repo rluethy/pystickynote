@@ -3,6 +3,20 @@ import sys
 import json
 
 
+def set_cursor_recursive(widget, cursor):
+    """Set cursor on widget and all its tkinter children."""
+    try:
+        widget.configure(cursor=cursor)
+    except:
+        pass
+    # Recursively set on all tkinter children
+    try:
+        for child in widget.winfo_children():
+            set_cursor_recursive(child, cursor)
+    except:
+        pass
+
+
 class ConfirmDialog(ctk.CTkToplevel):
     """Confirmation dialog for delete operations."""
 
@@ -33,7 +47,7 @@ class ConfirmDialog(ctk.CTkToplevel):
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
         btn_frame.pack(pady=(10, 20))
 
-        ctk.CTkButton(
+        self.no_btn = ctk.CTkButton(
             btn_frame,
             text="No",
             width=85,
@@ -42,10 +56,11 @@ class ConfirmDialog(ctk.CTkToplevel):
             command=self._on_no,
             fg_color=("#d0d0d0", "#404040"),
             hover_color=("#b0b0b0", "#505050"),
-            text_color=("#1a1a1a", "#f0f0f0"),
-        ).pack(side="left", padx=5)
+            text_color=("#1a1a1a", "#f0f0f0")
+        )
+        self.no_btn.pack(side="left", padx=5)
 
-        ctk.CTkButton(
+        self.yes_btn = ctk.CTkButton(
             btn_frame,
             text="Yes",
             width=85,
@@ -54,8 +69,9 @@ class ConfirmDialog(ctk.CTkToplevel):
             command=self._on_yes,
             fg_color=("#ffcccc", "#662222"),
             hover_color=("#ff9999", "#883333"),
-            text_color=("#660000", "#ffcccc"),
-        ).pack(side="left", padx=5)
+            text_color=("#660000", "#ffcccc")
+        )
+        self.yes_btn.pack(side="left", padx=5)
 
         # Handle window close
         self.protocol("WM_DELETE_WINDOW", self._on_no)
@@ -63,6 +79,14 @@ class ConfirmDialog(ctk.CTkToplevel):
         # Wait for window to be ready before centering
         self.update_idletasks()
         self._center_on_parent(parent)
+
+        # Set cursors after window is fully rendered
+        self.after(100, self._set_button_cursors)
+
+    def _set_button_cursors(self):
+        """Set hand cursor on buttons after they're fully rendered."""
+        set_cursor_recursive(self.no_btn, "hand2")
+        set_cursor_recursive(self.yes_btn, "hand2")
 
     def _center_on_parent(self, parent):
         """Center this dialog on the parent window."""
@@ -131,8 +155,14 @@ class StickyNoteWindow(ctk.CTkToplevel):
         self.update_idletasks()
         self.wm_attributes('-alpha', float(config.alpha))
 
+        # Set cursors after window is fully rendered
+        self.after(100, self._set_all_cursors)
+
     def _build_ui(self, content):
         """Build the note UI components."""
+        # Store widgets for cursor setting later
+        self.cursor_widgets = []
+
         # Title label (only if no titlebar)
         if self.no_titlebar:
             title_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -152,6 +182,10 @@ class StickyNoteWindow(ctk.CTkToplevel):
             title.bind('<Button-1>', self._start_drag)
             title.bind('<B1-Motion>', self._do_drag)
 
+            # Store for cursor setting
+            self.cursor_widgets.append((title_frame, "fleur"))
+            self.cursor_widgets.append((title, "fleur"))
+
         # Calculate font size (scale up for better readability)
         font_size = int(self.config.font_size) + 4
 
@@ -169,6 +203,9 @@ class StickyNoteWindow(ctk.CTkToplevel):
         self.textbox.pack(padx=10, pady=10, fill="both", expand=True)
         self.textbox.insert("1.0", content)
 
+        # Store for cursor setting (pencil indicates writing)
+        self.cursor_widgets.append((self.textbox, "pencil"))
+
         # Prevent textbox from interfering with text selection
         # (drag-anywhere only works on the window frame/buttons, not inside textbox)
 
@@ -179,9 +216,10 @@ class StickyNoteWindow(ctk.CTkToplevel):
         # Enable dragging via button frame (empty areas between buttons)
         btn_frame.bind('<Button-1>', self._start_drag)
         btn_frame.bind('<B1-Motion>', self._do_drag)
+        # Don't set cursor on btn_frame - let buttons override with hand cursor
 
         # Nice rounded buttons with subtle styling
-        ctk.CTkButton(
+        close_btn = ctk.CTkButton(
             btn_frame,
             text="Close",
             width=85,
@@ -192,9 +230,11 @@ class StickyNoteWindow(ctk.CTkToplevel):
             hover_color=("#b0b0b0", "#505050"),
             text_color=("#1a1a1a", "#f0f0f0"),
             font=("Arial", font_size - 2)
-        ).pack(side="left", padx=4)
+        )
+        close_btn.pack(side="left", padx=4)
+        self.cursor_widgets.append((close_btn, "hand2"))
 
-        ctk.CTkButton(
+        delete_btn = ctk.CTkButton(
             btn_frame,
             text="Delete",
             width=85,
@@ -205,9 +245,11 @@ class StickyNoteWindow(ctk.CTkToplevel):
             hover_color=("#ff9999", "#883333"),
             text_color=("#660000", "#ffcccc"),
             font=("Arial", font_size - 2)
-        ).pack(side="left", padx=4)
+        )
+        delete_btn.pack(side="left", padx=4)
+        self.cursor_widgets.append((delete_btn, "hand2"))
 
-        ctk.CTkButton(
+        save_btn = ctk.CTkButton(
             btn_frame,
             text="Save",
             width=85,
@@ -218,7 +260,14 @@ class StickyNoteWindow(ctk.CTkToplevel):
             hover_color=("#3a8eef", "#2a6fc4"),
             text_color="white",
             font=("Arial", font_size - 2)
-        ).pack(side="left", padx=4)
+        )
+        save_btn.pack(side="left", padx=4)
+        self.cursor_widgets.append((save_btn, "hand2"))
+
+    def _set_all_cursors(self):
+        """Set cursors on all widgets after they're fully rendered."""
+        for widget, cursor in self.cursor_widgets:
+            set_cursor_recursive(widget, cursor)
 
     def _darken_color(self, hex_color):
         """Darken a hex color for hover effect."""
