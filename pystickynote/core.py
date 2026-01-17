@@ -121,10 +121,6 @@ class StickyNoteWindow(ctk.CTkToplevel):
         # Build UI
         self._build_ui(content)
 
-        # Enable drag-anywhere
-        self.bind('<Button-1>', self._start_drag)
-        self.bind('<B1-Motion>', self._do_drag)
-
         # Handle window close
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -150,6 +146,12 @@ class StickyNoteWindow(ctk.CTkToplevel):
             )
             title.pack(fill="x")
 
+            # Enable dragging via title area
+            title_frame.bind('<Button-1>', self._start_drag)
+            title_frame.bind('<B1-Motion>', self._do_drag)
+            title.bind('<Button-1>', self._start_drag)
+            title.bind('<B1-Motion>', self._do_drag)
+
         # Calculate font size (scale up for better readability)
         font_size = int(self.config.font_size) + 4
 
@@ -173,6 +175,10 @@ class StickyNoteWindow(ctk.CTkToplevel):
         # Buttons frame - use default CTk background for contrast
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
         btn_frame.pack(pady=(0, 12))
+
+        # Enable dragging via button frame (empty areas between buttons)
+        btn_frame.bind('<Button-1>', self._start_drag)
+        btn_frame.bind('<B1-Motion>', self._do_drag)
 
         # Nice rounded buttons with subtle styling
         ctk.CTkButton(
