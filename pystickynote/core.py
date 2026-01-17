@@ -8,13 +8,13 @@ def set_cursor_recursive(widget, cursor):
     try:
         widget.configure(cursor=cursor)
     except:
-        pass
+        print(f"Warning: Could not set cursor {cursor} on {widget}")
     # Recursively set on all tkinter children
     try:
         for child in widget.winfo_children():
             set_cursor_recursive(child, cursor)
     except:
-        pass
+        print(f"Warning: Could not set cursor {cursor} on {widget}")
 
 
 class ConfirmDialog(ctk.CTkToplevel):
@@ -210,17 +210,36 @@ class StickyNoteWindow(ctk.CTkToplevel):
         # (drag-anywhere only works on the window frame/buttons, not inside textbox)
 
         # Buttons frame - use default CTk background for contrast
+        # Fill X so left/right "grip" areas can stretch to the window edges.
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.pack(pady=(0, 12))
+        btn_frame.pack(fill="x", padx=0, pady=(0, 12))
 
-        # Enable dragging via button frame (empty areas between buttons)
-        btn_frame.bind('<Button-1>', self._start_drag)
-        btn_frame.bind('<B1-Motion>', self._do_drag)
-        # Don't set cursor on btn_frame - let buttons override with hand cursor
+        # Center the buttons by surrounding them with expandable spacers.
+        # When there's no OS titlebar, those spacers also act as drag "grip" areas.
+        grip_height = 30
+
+        left_grip = ctk.CTkFrame(btn_frame, fg_color="transparent", height=grip_height)
+        left_grip.pack(side="left", fill="both", expand=True)
+        left_grip.pack_propagate(False)
+
+        buttons_parent = ctk.CTkFrame(btn_frame, fg_color="transparent")
+        buttons_parent.pack(side="left")
+
+        right_grip = ctk.CTkFrame(btn_frame, fg_color="transparent", height=grip_height)
+        right_grip.pack(side="left", fill="both", expand=True)
+        right_grip.pack_propagate(False)
+
+        if self.no_titlebar:
+            left_grip.bind('<Button-1>', self._start_drag)
+            left_grip.bind('<B1-Motion>', self._do_drag)
+            right_grip.bind('<Button-1>', self._start_drag)
+            right_grip.bind('<B1-Motion>', self._do_drag)
+            self.cursor_widgets.append((left_grip, "fleur"))
+            self.cursor_widgets.append((right_grip, "fleur"))
 
         # Nice rounded buttons with subtle styling
         close_btn = ctk.CTkButton(
-            btn_frame,
+            buttons_parent,
             text="Close",
             width=85,
             height=30,
@@ -235,7 +254,7 @@ class StickyNoteWindow(ctk.CTkToplevel):
         self.cursor_widgets.append((close_btn, "hand2"))
 
         delete_btn = ctk.CTkButton(
-            btn_frame,
+            buttons_parent,
             text="Delete",
             width=85,
             height=30,
@@ -250,7 +269,7 @@ class StickyNoteWindow(ctk.CTkToplevel):
         self.cursor_widgets.append((delete_btn, "hand2"))
 
         save_btn = ctk.CTkButton(
-            btn_frame,
+            buttons_parent,
             text="Save",
             width=85,
             height=30,
