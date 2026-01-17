@@ -29,14 +29,14 @@ def main():
         if args.name == new_id:
             print('Please Provide The Name of The Note.')
         else:
-            delete_note(args.name)
+            delete_note(args.name, config)
     elif args.action == 'open':
         if args.name == new_id:
             print('Please Provide The Name of The Note.')
         else:
             open_note(args.name, config)
     elif args.action == 'list':
-        list_notes()
+        list_notes(config)
     exit(0)
 
 if __name__ == "__main__":

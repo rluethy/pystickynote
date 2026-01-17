@@ -1,121 +1,316 @@
-import PySimpleGUIQt as g
+import customtkinter as ctk
 import sys
 import json
 
-def get_layout(config, name, content):
-    if 'darwin' in sys.platform:
-        NTB = False
-    else:
-        NTB = config.no_titlebar
-    if NTB:   
-        layout = [
-            [g.T(name, font=('Arial', int(config.title_size)), justification='center')],
-            ]
-    else:
-        layout = []
-    layout.extend([
-            [g.Multiline(content, size=(None, int(config.height)), key='content')],
-            [g.B('Close'), g.B('Delete'), g.B('Save')]
-            ])
-    return layout, NTB
+
+class ConfirmDialog(ctk.CTkToplevel):
+    """Confirmation dialog for delete operations."""
+
+    def __init__(self, parent, note_name, config):
+        super().__init__(parent)
+        self.result = False
+        self.config = config
+
+        self.title("Confirm Delete")
+        self.attributes('-topmost', True)
+        self.resizable(False, False)
+
+        # Center on parent
+        self.transient(parent)
+        self.grab_set()
+
+        # Use default CTk theme (matches title bar)
+
+        # Message (use default theme text color)
+        label = ctk.CTkLabel(
+            self,
+            text=f"Are you sure you want to delete '{note_name}'?",
+            font=("Arial", int(config.font_size) + 2),
+        )
+        label.pack(padx=20, pady=(20, 10))
+
+        # Buttons
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(pady=(10, 20))
+
+        ctk.CTkButton(
+            btn_frame,
+            text="No",
+            width=85,
+            height=30,
+            corner_radius=8,
+            command=self._on_no,
+            fg_color=("#d0d0d0", "#404040"),
+            hover_color=("#b0b0b0", "#505050"),
+            text_color=("#1a1a1a", "#f0f0f0"),
+        ).pack(side="left", padx=5)
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Yes",
+            width=85,
+            height=30,
+            corner_radius=8,
+            command=self._on_yes,
+            fg_color=("#ffcccc", "#662222"),
+            hover_color=("#ff9999", "#883333"),
+            text_color=("#660000", "#ffcccc"),
+        ).pack(side="left", padx=5)
+
+        # Handle window close
+        self.protocol("WM_DELETE_WINDOW", self._on_no)
+
+        # Wait for window to be ready before centering
+        self.update_idletasks()
+        self._center_on_parent(parent)
+
+    def _center_on_parent(self, parent):
+        """Center this dialog on the parent window."""
+        self.update_idletasks()
+        pw = parent.winfo_width()
+        ph = parent.winfo_height()
+        px = parent.winfo_x()
+        py = parent.winfo_y()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        x = px + (pw - w) // 2
+        y = py + (ph - h) // 2
+        self.geometry(f"+{x}+{y}")
+
+    def _darken_color(self, hex_color):
+        """Darken a hex color for hover effect."""
+        hex_color = hex_color.lstrip('#')
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        r = max(0, int(r * 0.8))
+        g = max(0, int(g * 0.8))
+        b = max(0, int(b * 0.8))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _on_yes(self):
+        self.result = True
+        self.destroy()
+
+    def _on_no(self):
+        self.result = False
+        self.destroy()
+
+
+class StickyNoteWindow(ctk.CTkToplevel):
+    """A sticky note window that can be dragged and stays on top."""
+
+    def __init__(self, parent, name, content, config, note_obj, is_new=False):
+        super().__init__(parent)
+        self.name = name
+        self.config = config
+        self.note_obj = note_obj
+        self.is_new = is_new
+        self._drag_x = 0
+        self._drag_y = 0
+
+        # Window properties
+        self.title(name)
+        self.attributes('-topmost', True)
+
+        # Handle no_titlebar setting (not on macOS)
+        self.no_titlebar = config.no_titlebar if 'darwin' not in sys.platform else False
+        if self.no_titlebar:
+            self.overrideredirect(True)
+
+        # Use default CTk theme (matches title bar)
+
+        # Build UI
+        self._build_ui(content)
+
+        # Enable drag-anywhere
+        self.bind('<Button-1>', self._start_drag)
+        self.bind('<B1-Motion>', self._do_drag)
+
+        # Handle window close
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Set minimum size
+        self.minsize(300, 200)
+
+        # Apply transparency after window is ready (Linux compatibility)
+        self.update_idletasks()
+        self.wm_attributes('-alpha', float(config.alpha))
+
+    def _build_ui(self, content):
+        """Build the note UI components."""
+        # Title label (only if no titlebar)
+        if self.no_titlebar:
+            title_frame = ctk.CTkFrame(self, fg_color="transparent")
+            title_frame.pack(fill="x", padx=10, pady=(10, 0))
+
+            title = ctk.CTkLabel(
+                title_frame,
+                text=self.name,
+                font=("Arial", int(self.config.title_size) + 4, "bold"),
+                anchor="center"
+            )
+            title.pack(fill="x")
+
+        # Calculate font size (scale up for better readability)
+        font_size = int(self.config.font_size) + 4
+
+        # Text area
+        self.textbox = ctk.CTkTextbox(
+            self,
+            width=int(self.config.width) * 10,
+            height=int(self.config.height) * 30,
+            font=("Arial", font_size),
+            fg_color=self.config.background_color,
+            text_color=self.config.text_color,
+            border_width=int(self.config.border_width),
+            border_color=self.config.text_color
+        )
+        self.textbox.pack(padx=10, pady=10, fill="both", expand=True)
+        self.textbox.insert("1.0", content)
+
+        # Prevent textbox from interfering with text selection
+        # (drag-anywhere only works on the window frame/buttons, not inside textbox)
+
+        # Buttons frame - use default CTk background for contrast
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(pady=(0, 12))
+
+        # Nice rounded buttons with subtle styling
+        ctk.CTkButton(
+            btn_frame,
+            text="Close",
+            width=85,
+            height=30,
+            corner_radius=8,
+            command=self._on_close,
+            fg_color=("#d0d0d0", "#404040"),
+            hover_color=("#b0b0b0", "#505050"),
+            text_color=("#1a1a1a", "#f0f0f0"),
+            font=("Arial", font_size - 2)
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Delete",
+            width=85,
+            height=30,
+            corner_radius=8,
+            command=self._on_delete,
+            fg_color=("#ffcccc", "#662222"),
+            hover_color=("#ff9999", "#883333"),
+            text_color=("#660000", "#ffcccc"),
+            font=("Arial", font_size - 2)
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            btn_frame,
+            text="Save",
+            width=85,
+            height=30,
+            corner_radius=8,
+            command=self._on_save,
+            fg_color=("#4a9eff", "#1a5fb4"),
+            hover_color=("#3a8eef", "#2a6fc4"),
+            text_color="white",
+            font=("Arial", font_size - 2)
+        ).pack(side="left", padx=4)
+
+    def _darken_color(self, hex_color):
+        """Darken a hex color for hover effect."""
+        hex_color = hex_color.lstrip('#')
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        r = max(0, int(r * 0.8))
+        g = max(0, int(g * 0.8))
+        b = max(0, int(b * 0.8))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _start_drag(self, event):
+        """Start dragging the window."""
+        self._drag_x = event.x
+        self._drag_y = event.y
+
+    def _do_drag(self, event):
+        """Handle window dragging."""
+        x = self.winfo_x() + event.x - self._drag_x
+        y = self.winfo_y() + event.y - self._drag_y
+        self.geometry(f"+{x}+{y}")
+
+    def _on_close(self):
+        """Close the window without saving."""
+        self.destroy()
+        self.master.destroy()
+
+    def _on_save(self):
+        """Save the note content."""
+        content = self.textbox.get("1.0", "end-1c")
+        self.note_obj[self.name] = content
+        with open(self.config.notes_path, 'w') as f:
+            json.dump(self.note_obj, f, indent=4)
+
+    def _on_delete(self):
+        """Delete the note after confirmation."""
+        dialog = ConfirmDialog(self, self.name, self.config)
+        self.wait_window(dialog)
+
+        if dialog.result:
+            self.note_obj.pop(self.name, None)
+            with open(self.config.notes_path, 'w') as f:
+                json.dump(self.note_obj, f, indent=4)
+            self._on_close()
+
+
+def _create_hidden_root():
+    """Create a hidden root window for the application."""
+    root = ctk.CTk()
+    root.withdraw()
+    return root
+
 
 def open_note(name, config):
-    g.SetOptions(background_color=config.background_color, text_color=config.text_color,
-                 input_elements_background_color=config.background_color, input_text_color=config.text_color,
-                 button_color=(config.text_color, config.background_color), border_width=config.border_width, font=('Arial', int(config.font_size)))
-    with open(config.notes_path, 'r+') as notes:
+    """Open an existing note for editing."""
+    with open(config.notes_path, 'r') as notes:
         note_obj = json.load(notes)
-        match = False
-        content = ''
-    for k, v in note_obj.items():
-        if name == k:
-            match = True
-            content = v
-    if match == False:
+
+    if name not in note_obj:
         print('No Note Found With That Name')
         exit(1)
 
-    layout, NTB = get_layout(config, name, content)
-    window = g.Window(name, resizable=True, no_titlebar=NTB, keep_on_top=True, grab_anywhere=True, layout=layout, alpha_channel=float(config.alpha))
-    
-    while True:
-        try:
-            event, value = window.Read()
-            # print(event,value)
-            if event == 'Close' or event == None or event == 'Save':
-                note_obj[name] = value['content']
-                with open(config.notes_path, 'r+') as notes:
-                    notes.seek(0)
-                    notes.truncate()
-                    json.dump(note_obj, notes, indent=4)
-                if event == 'Close' or event == None:
-                    window.Close()
-                    break
-            elif event == 'Delete':
-                new_layout = [
-                    [g.T('Are you sure you want to delete {}?'.format(name), justification='center')],
-                    [g.B('No'), g.B('Yes')]
-                ]
-                confirm_window = g.Window('', no_titlebar=NTB, keep_on_top=True, grab_anywhere=True, layout=new_layout)
-                while True:
-                    event1, value1 = confirm_window.Read()
-                    if event1 == 'Yes':
-                        note_obj.pop(name, [])
-                        with open(config.notes_path, 'r+') as notes:
-                            notes.seek(0)
-                            notes.truncate()
-                            json.dump(note_obj, notes, indent=4)
-                        confirm_window.Close()
-                        break
-                    else:
-                        confirm_window.Close()
-                        break
-                window.Close()
-                break
-        except Exception as exc:
-            print(exc)
-            pass
-                
-def create_note(name, config):
-    g.SetOptions(background_color=config.background_color, text_color=config.text_color,
-                 input_elements_background_color=config.background_color, input_text_color=config.text_color,
-                 button_color=(config.text_color, config.background_color), border_width=config.border_width, font=('Arial', int(config.font_size)))
+    content = note_obj[name]
 
-    layout, NTB = get_layout(config, name, content="")
-    window = g.Window(name, no_titlebar=NTB, auto_size_text=True, keep_on_top=True, grab_anywhere=True, layout=layout, alpha_channel=float(config.alpha))
-    while True:
-        try:
-            event, value = window.Read()
-            # print(event,value)
-            if event == 'Close' or event == None or event == 'Save':
-                with open(config.notes_path, 'r+') as notes:
-                    note_obj = json.load(notes)
-                    note_obj.update({
-                        name: value['content']
-                    })
-                    notes.seek(0)
-                    notes.truncate()
-                    json.dump(note_obj, notes, indent=4)
-                if event == 'Close' or event == None:
-                    window.Close()
-                    break
-        except:
-            pass
-        
+    root = _create_hidden_root()
+    StickyNoteWindow(root, name, content, config, note_obj, is_new=False)
+    root.mainloop()
+
+
+def create_note(name, config):
+    """Create a new note."""
+    with open(config.notes_path, 'r') as notes:
+        note_obj = json.load(notes)
+
+    root = _create_hidden_root()
+    StickyNoteWindow(root, name, "", config, note_obj, is_new=True)
+    root.mainloop()
+
+
 def list_notes(config):
-    with open(config.notes_path, 'r+') as json_file:
+    """List all available notes."""
+    with open(config.notes_path, 'r') as json_file:
         obj = json.load(json_file)
         print('Available Notes:\n')
-        for k, v in obj.items():
+        for k in obj.keys():
             print(k)
+
+
 def delete_note(name, config):
-    with open(config.notes_path, "r+") as json_file:
+    """Delete a note by name."""
+    with open(config.notes_path, "r") as json_file:
         obj = json.load(json_file)
+
     try:
         del obj[name]
-        print('Deleted note "{}".'.format(name))
+        print(f'Deleted note "{name}".')
     except KeyError:
-        print('No note found with name "{}"'.format(name))
+        print(f'No note found with name "{name}"')
+        return
 
     with open(config.notes_path, "w") as json_file:
-        json_file.write(json.dumps(obj, indent=4))
+        json.dump(obj, json_file, indent=4)

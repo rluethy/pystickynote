@@ -1,8 +1,8 @@
 # pystickynote
 
-Stickynotes for your desktop easily from the command line! Built using [PySimpleGUI](http://pysimplegui.com)
+Stickynotes for your desktop easily from the command line! Built using [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) for a modern, lightweight UI.
 
-[Join My Discord/Support Discord](https://discord.gg/C7jgQeN)
+[Join Discord/Support Discord](https://discord.gg/C7jgQeN)
 
 # Preview
 
@@ -12,12 +12,14 @@ Stickynotes for your desktop easily from the command line! Built using [PySimple
 
 # How does it work?
 
-Pystickynote creates a small QT window for you to jot your ideas down and then display them later on all with a command line tool. On top of that, the note itself is fully customizable allowing you to change colors, alpha, and borders.
+Pystickynote creates a small window for you to jot your ideas down and then display them later on, all with a command line tool. Notes stay on top of other windows and can be customized with different colors, transparency, and fonts.
 
 # Installation
 
-```
-pip3 install pystickynote
+```bash
+git clone https://github.com/rluethy/pystickynote.git
+cd pystickynote
+pip install .
 ```
 
 # Running It
@@ -33,6 +35,14 @@ pip3 install pystickynote
 ```
 
 # Changelog
+
+### Update 2.0.0:
+
+- **Migrated from PySimpleGUIQt to CustomTkinter** - Much lighter dependency (~1MB vs ~150MB), no Qt required
+- Modern UI with rounded buttons and cleaner styling
+- Window now uses system theme colors (matching title bar)
+- Text area still respects `background_color` and `text_color` from config
+- Requires Python 3.7+ (dropped Python 3.6 support)
 
 ### Update 1.5.1:
 
@@ -58,21 +68,22 @@ The config file looks something like this:
 
 ```
 [DEFAULT]
-background_color = #454545
-text_color = #fafafa
+background_color = #f5f545
+text_color = #0a0a0a
 alpha = 0.8
 border_width = 0
-title_size = 8
-font_size = 10
-box_height = 5
-box_width = 50
+title_size = 24
+font_size = 24
+box_height = 15
+box_width = 80
+no_titlebar = False
 ```
 
-`background_color` = the background hex color for the note
+`background_color` = the background hex color for the text area
 
-`text_color` = the text color for the note
+`text_color` = the text color for the text area
 
-`alpha` = the note window's alpha
+`alpha` = the note window's transparency (0.0 to 1.0)
 
 `border_width` = border around input box and buttons
 
